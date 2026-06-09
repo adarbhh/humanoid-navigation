@@ -1,0 +1,25 @@
+name: robotics-assignment
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10.14
+  - pip=24.0
+  - pip:
+    - mujoco==3.3.7
+    - numpy==1.26.4
+    - scipy==1.13.1
+    - matplotlib==3.9.0
+    - h5py==3.11.0
+    - rich==13.7.1
+    - Pillow==10.3.0
+    - imageio==2.34.1
+    - pyyaml==6.0.1
+    - tqdm==4.66.4
+    - pandas==2.2.2
+    - psutil==5.9.8
+    - requests==2.32.3
+    - nbformat==5.10.4
+    - nbconvert==7.16.4
+    - ipykernel==6.29.4
+    - jupyter==1.0.0

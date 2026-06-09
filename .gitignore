@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Conda / pip
+.env
+*.egg
+
+# Data outputs
+data/runs/
+data/*.h5
+analysis/report.html
+
+# Jupyter
+.ipynb_checkpoints/
+analysis/.ipynb_checkpoints/
+
+# Model assets (downloaded by setup script)
+robot/model/g1/assets/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MuJoCo generated
+/tmp/maze_*
