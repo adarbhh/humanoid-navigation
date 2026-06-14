@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>G1 Robot — Live Demo</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #f5f5f7;
+  color: #1d1d1f;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  min-height: 100vh;
+  padding: 0 0 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.page-content {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px 0;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  padding-bottom: 14px;
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-hex { font-size: 2rem; color: #0071e3; line-height: 1; }
+.brand-text h1 { font-size: 1.05rem; letter-spacing: 0.02em; color: #1d1d1f; font-weight: 700; }
+.brand-text p  { font-size: 0.7rem; letter-spacing: 0.02em; color: #6e6e73; margin-top: 3px; font-weight: 400; }
+.meta { display: flex; align-items: center; gap: 10px; }
+
+#seed-badge {
+  font-size: 0.85rem; font-weight: 600; color: #1d1d1f;
+  background: #ffffff; border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 20px; padding: 5px 16px; letter-spacing: 0.01em;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+#conn-pill {
+  font-size: 0.78rem; padding: 5px 14px; border-radius: 20px;
+  background: #fff3e0; color: #ff9500; border: 1px solid rgba(255,149,0,0.25);
+  font-weight: 500; transition: background 0.3s, color 0.3s;
+}
+#conn-pill.live { background: #e8f9ee; color: #28a745; border-color: rgba(52,199,89,0.35); }
+
+.card {
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 16px;
+  padding: 18px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
+}
+
+.card-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6e6e73;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.primary {
+  font-size: 3.2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #1d1d1f;
+  transition: color 0.4s;
+  letter-spacing: -0.02em;
+}
+
+.c-goal-no { color: #ff9500; }
+
+@keyframes goalPulse {
+  0%   { color: #34c759; }
+  50%  { color: #30d158; }
+  100% { color: #34c759; }
+}
+.goal-yes {
+  color: #34c759;
+  animation: goalPulse 0.7s ease-in-out 3;
+  animation-fill-mode: forwards;
+}
+
+#solved-overlay {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  pointer-events: none; align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px;
+}
+@keyframes overlayIn {
+  0% { opacity:0; } 8% { opacity:1; } 78% { opacity:1; } 100% { opacity:0; }
+}
+#solved-overlay.show { display: flex; animation: overlayIn 3.8s ease-in-out forwards; }
+#solved-overlay-bg   { position: absolute; inset: 0; background: rgba(52,199,89,0.07); border: 2px solid rgba(52,199,89,0.25); }
+#solved-overlay-text { position: relative; font-size: clamp(3rem,8vw,6rem); font-weight: 700; letter-spacing: 0.04em; color: #34c759; }
+#solved-overlay-sub  { position: relative; font-size: 1.1rem; letter-spacing: 0.04em; color: rgba(52,199,89,0.75); }
+
+#loc-quality {
+  display: inline-block; font-size: 1.45rem; font-weight: 700;
+  letter-spacing: 0.04em; padding: 5px 16px; border-radius: 8px;
+  border: 1.5px solid currentColor;
+}
+#loc-quality.q-good { color: #34c759; background: rgba(52,199,89,0.07); }
+#loc-quality.q-fair { color: #ff9500; background: rgba(255,149,0,0.07); }
+#loc-quality.q-poor { color: #ff3b30; background: rgba(255,59,48,0.07); }
+
+.sub-row { display: flex; gap: 20px; flex-wrap: wrap; }
+.metric  { display: flex; flex-direction: column; gap: 3px; }
+.mlabel  { font-size: 0.67rem; color: #6e6e73; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+.mval    { font-size: 1.35rem; font-weight: 600; color: #1d1d1f; }
+
+#dist-progress {
+  position: relative; background: #f2f2f7; border-radius: 6px;
+  height: 22px; overflow: hidden;
+}
+#dist-bar {
+  height: 100%; width: 0%; background: #0071e3; border-radius: 6px;
+  transition: width 0.5s ease, background 0.4s;
+}
+#dist-bar-label {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.04em; color: #6e6e73; pointer-events: none;
+}
+
+.bar-track { background: #f2f2f7; border-radius: 3px; height: 5px; overflow: hidden; }
+.bar-fill  { height: 100%; border-radius: 3px; background: #0071e3; transition: width 0.4s ease, background 0.4s; }
+
+.c-ok  { color: #0071e3; } .c-yes { color: #34c759; }
+.c-warn{ color: #ff9500; } .c-err { color: #ff3b30; } .c-dim { color: #aeaeb2; }
+
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #aeaeb2; margin-right: 5px; vertical-align: middle; }
+.dot.pulse { background: #34c759; animation: blink 1.2s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+.health-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 20px; flex: 1; align-content: space-evenly; }
+.health-grid .mval { font-size: 1.45rem; white-space: nowrap; }
+
+.grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+.card.wide { grid-column: span 2; }
+
+#minimap-wrap { display: flex; flex-direction: column; }
+#minimap-img {
+  width: 100%; height: auto;
+  border-radius: 10px; border: 1px solid rgba(0,0,0,0.08);
+  background: #f5f5f7; min-height: 240px; object-fit: contain;
+}
+.minimap-placeholder {
+  width: 100%; min-height: 240px;
+  display: flex; align-items: center; justify-content: center;
+  color: #aeaeb2; font-size: 0.75rem; letter-spacing: 0.04em;
+  border: 1px dashed rgba(0,0,0,0.15); border-radius: 10px;
+}
+
+canvas.chart { display: block; width: 100%; }
+
+footer {
+  font-size: 0.68rem; color: #aeaeb2;
+  display: flex; justify-content: space-between;
+  border-top: 1px solid rgba(0,0,0,0.06); padding-top: 10px;
+  margin-top: 2px;
+}
+
+#solved-banner {
+  display: flex; align-items: center; gap: 20px;
+  background: linear-gradient(135deg, rgba(52,199,89,0.06) 0%, rgba(52,199,89,0.02) 100%);
+  border: 1px solid rgba(52,199,89,0.25); border-radius: 16px;
+  padding: 20px 28px; margin-bottom: 16px;
+}
+#solved-banner-check {
+  font-size: clamp(2.8rem, 6vw, 4.5rem); color: #34c759; font-weight: 700;
+  line-height: 1; flex-shrink: 0;
+}
+#solved-banner-title {
+  font-size: clamp(1.5rem, 4vw, 2.4rem); font-weight: 700;
+  color: #34c759; letter-spacing: 0.03em;
+}
+#solved-banner-sub {
+  font-size: 0.9rem; color: rgba(52,199,89,0.70); letter-spacing: 0.03em; margin-top: 4px;
+}
+
+#post-run {
+  display: none; opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+  margin-top: 8px;
+}
+#post-run.visible { opacity: 1; transform: translateY(0); }
+.post-section-header {
+  text-align: center; font-size: 0.8rem; font-weight: 600;
+  color: #6e6e73; letter-spacing: 0.08em; text-transform: uppercase;
+  border-top: 1px solid rgba(0,0,0,0.06); padding: 18px 0 14px;
+}
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+canvas.post-chart { display: block; width: 100%; }
+.kpi-table { width: 100%; border-collapse: collapse; }
+.kpi-table tr { border-bottom: 1px solid rgba(0,0,0,0.06); }
+.kpi-table tr:last-child { border-bottom: none; }
+.kpi-table td { padding: 7px 10px; font-size: 0.88rem; }
+.kpi-table td:first-child { color: #6e6e73; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.74rem; font-weight: 500; }
+.kpi-table td:last-child  { color: #1d1d1f; font-weight: 600; text-align: right; }
+.kpi-table .kv-good td:last-child { color: #34c759; }
+.kpi-table .kv-warn td:last-child { color: #ff9500; }
+.kpi-table .kv-err  td:last-child { color: #ff3b30; }
+</style>
+</head>
+<body>
+
+<!-- ── Full-screen goal overlay ── -->
+<div id="solved-overlay">
+  <div id="solved-overlay-bg"></div>
+  <div id="solved-overlay-text">MAZE SOLVED</div>
+  <div id="solved-overlay-sub">— —</div>
+</div>
+
+<div class="page-content">
+
+<!-- ── Header ── -->
+<header>
+  <div class="brand">
+    <div class="brand-hex">⬡</div>
+    <div class="brand-text">
+      <h1>G1 MAZE — LIVE DEMO</h1>
+      <p>UNITREE G1 HUMANOID · MUJOCO 3 · DEAD-RECKONING NAV</p>
+    </div>
+  </div>
+  <div class="meta">
+    <span id="seed-badge">SEED — · —×—</span>
+    <span id="conn-pill"><span class="dot" id="dot"></span>CONNECTING…</span>
+  </div>
+</header>
+
+<!-- ── Row 1: Solve / Time / Safety ── -->
+<div class="grid">
+
+  <div class="card">
+    <div class="card-title">🏁 Solve Status</div>
+    <div class="primary c-goal-no" id="goal-val">NO…</div>
+    <div class="sub-row">
+      <div class="metric">
+        <span class="mlabel">Dist to goal</span>
+        <span class="mval" id="dist-val">— m</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Grid</span>
+        <span class="mval" id="grid-val">—</span>
+      </div>
+    </div>
+    <div id="dist-progress">
+      <div id="dist-bar"></div>
+      <div id="dist-bar-label">0% OF PATH DONE</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⏱ Time</div>
+    <div class="primary" id="sim-time">0.0 s</div>
+    <div class="sub-row">
+      <div class="metric">
+        <span class="mlabel">Speed</span>
+        <span class="mval" id="rtf-val">2.0x</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🛡 Safety</div>
+    <div class="sub-row" style="flex:1; align-items:flex-end">
+      <div class="metric">
+        <span class="mlabel">Wall collisions</span>
+        <span class="primary c-yes" id="coll-val" style="font-size:3.2rem">0</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Stuck events</span>
+        <span class="primary c-yes" id="stuck-val" style="font-size:3.2rem">0</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Min clearance</span>
+        <span class="primary c-yes" id="clearance-val" style="font-size:3.2rem">— m</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Row 2: Minimap / Capture Health ── -->
+<div class="grid">
+
+  <div class="card">
+    <div class="card-title">🗺 Minimap</div>
+    <div id="minimap-wrap">
+      <div class="minimap-placeholder" id="minimap-placeholder">WAITING FOR FRAME…</div>
+      <img id="minimap-img" style="display:none" alt="live minimap">
+    </div>
+  </div>
+
+  <div class="card wide">
+    <div class="card-title">📡 Capture Health</div>
+    <div class="health-grid">
+      <div class="metric">
+        <span class="mlabel">Nav fps</span>
+        <span class="mval" id="nav-hz">—</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Cam fps</span>
+        <span class="mval" id="cam-hz">—</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Frame drops</span>
+        <span class="mval" id="drops-val">0 %</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Sync skew</span>
+        <span class="mval" id="sync-val">0 ms</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Loc error</span>
+        <span class="mval" id="loc-err">—</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Est pos</span>
+        <span class="mval" id="pos-val">—</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Waypoints</span>
+        <span class="mval" id="wp-val">— / —</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Path efficiency</span>
+        <span class="mval" id="eff-val">—</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Heading RMS</span>
+        <span class="mval" id="hrms-val">—</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Row 3: Dist chart / ATE RMSE chart ── -->
+<div class="grid">
+
+  <div class="card">
+    <div class="card-title">📍 Distance to Goal</div>
+    <canvas id="spark" class="chart" height="100"></canvas>
+  </div>
+
+  <div class="card wide">
+    <div class="card-title">📈 Localization Error Over Time</div>
+    <canvas id="ate-chart" class="chart" height="100"></canvas>
+    <div class="sub-row" style="align-items:center; margin-top:8px;">
+      <div class="metric">
+        <span class="mlabel">Quality</span>
+        <span id="loc-quality" class="q-good">GOOD</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">ATE RMSE</span>
+        <span class="mval" id="ate-now">—</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Peak</span>
+        <span class="mval" id="ate-peak">—</span>
+      </div>
+      <div class="metric">
+        <span class="mlabel">Samples</span>
+        <span class="mval" id="ate-n">0</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Post-Run Analysis (auto-appears on goal reached) ── -->
+<div id="post-run">
+  <div id="solved-banner">
+    <div id="solved-banner-check">✓</div>
+    <div>
+      <div id="solved-banner-title">MAZE SOLVED</div>
+      <div id="solved-banner-sub">—</div>
+    </div>
+  </div>
+  <div class="post-section-header">📊 &nbsp; POST-RUN ANALYSIS</div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">📍 Distance to Goal — Full Run</div>
+      <canvas id="pr-dist" class="post-chart" data-h="140"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">🧭 Localization Drift (ATE RMSE)</div>
+      <canvas id="pr-ate" class="post-chart" data-h="140"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">🧱 Wall Collision Rate (per 5 s)</div>
+      <canvas id="pr-coll" class="post-chart" data-h="140"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">📐 Path Efficiency Over Time</div>
+      <canvas id="pr-eff" class="post-chart" data-h="140"></canvas>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">📏 Deviation from Planned Path over Time</div>
+    <div style="display:flex; gap:20px; align-items:center; margin-bottom:8px; font-size:0.78rem; color:#7da8cc; letter-spacing:0.06em;">
+      <span><span style="color:#00e676; font-weight:700;">—</span> &nbsp;&lt; 0.2m (good)</span>
+      <span><span style="color:#ffb74d; font-weight:700;">—</span> &nbsp;0.2–0.5m (ok)</span>
+      <span><span style="color:#ef5350; font-weight:700;">—</span> &nbsp;≥ 0.5m (high)</span>
+      <span><span style="color:#ff8c00; font-weight:700;">- -</span> &nbsp;threshold 0.5m</span>
+    </div>
+    <canvas id="pr-path" class="post-chart" data-h="200"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🏆 Run Summary</div>
+    <table class="kpi-table" id="kpi-table"></table>
+  </div>
+</div>
+
+<!-- ── Footer ── -->
+<footer>
+  <span>Updates via Server-Sent Events · no external dependencies · port 7654</span>
+  <span id="tick-counter">0 updates</span>
+</footer>
+
+</div><!-- end .page-content -->
+
+<script>
+"use strict";
+
+// ── History buffers ────────────────────────────────────────────────────────
+const HIST = 180;
+const distHist = [];
+const ateHist  = [];
+
+// Full-run buffers (unlimited, for post-run charts)
+const runDist = [];   // {t, v}
+const runAte  = [];   // {t, v}
+const runColl = [];   // {t, v}  — cumulative collision count
+const runEff  = [];   // {t, v}
+let plannedPath  = null;   // [[x,y], …] A* waypoints, sent once on goal
+let gtTrajectory = null;   // [[x,y], …] GT positions, sent once on goal
+let runDuration  = null;   // time_to_goal in seconds, for X axis scaling
+
+let ticks     = 0;
+let maxDist   = null;
+let startDist = null;   // first recorded distance — reference line for chart
+let peakAte   = 0;
+let lastPct   = 0;      // last path_progress % — for resize redraws
+let postRunShown = false;
+
+
+// ── Value setter ───────────────────────────────────────────────────────────
+function setVal(el, text, className) {
+  if (text !== undefined) el.textContent = text;
+  if (className !== undefined) el.className = className;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmt(v, d=2) { return v == null ? '—' : (+v).toFixed(d); }
+
+function statusClass(v, good, warn) {
+  if (v == null) return 'mval c-dim';
+  if (v < good)  return 'mval c-yes';
+  if (v < warn)  return 'mval c-ok';
+  if (v < warn*2) return 'mval c-warn';
+  return 'mval c-err';
+}
+
+// ── Canvas setup (fixed H to avoid attribute-growth bug) ──────────────────
+const CHART_H = 100;
+
+function setupCanvas(id) {
+  const c = document.getElementById(id);
+  const W = c.offsetWidth || 400;
+  const H = CHART_H;
+  c.width  = W * devicePixelRatio;
+  c.height = H * devicePixelRatio;
+  c.style.height = H + 'px';
+  const ctx = c.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  return { ctx, W, H };
+}
+
+// ── Distance sparkline ─────────────────────────────────────────────────────
+function drawSpark(pct) {
+  const { ctx, W, H } = setupCanvas('spark');
+  ctx.clearRect(0, 0, W, H);
+  if (distHist.length < 2) return;
+
+  const mx    = Math.max(...distHist, startDist || 0.1, 0.1);
+  const xStep = W / (HIST - 1);
+
+  // ── Starting-distance reference line (dashed, orange) ────────────────────
+  if (startDist != null) {
+    const refY = H - (startDist / mx) * (H - 6) - 3;
+    ctx.beginPath();
+    ctx.moveTo(0, refY);
+    ctx.lineTo(W, refY);
+    ctx.strokeStyle = 'rgba(255,149,0,0.55)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // % completed label — put below dashed line if it's near the top edge
+    const labelY = refY < 16 ? refY + 13 : refY - 4;
+    ctx.fillStyle = '#ff9500';
+    ctx.font = `bold ${Math.round(9 * devicePixelRatio) / devicePixelRatio}px -apple-system, Helvetica Neue`;
+    ctx.textAlign = 'right';
+    ctx.fillText(`${Math.round(pct ?? 0)}% done`, W - 4, labelY);
+    ctx.textAlign = 'left';
+    // "START" label on left
+    ctx.fillStyle = 'rgba(255,149,0,0.6)';
+    ctx.font = `${Math.round(8 * devicePixelRatio) / devicePixelRatio}px -apple-system, Helvetica Neue`;
+    ctx.fillText('START', 4, labelY);
+  }
+
+  // ── Data line ─────────────────────────────────────────────────────────────
+  ctx.beginPath();
+  distHist.forEach((v, i) => {
+    const x = i * xStep;
+    const y = H - (v / mx) * (H - 6) - 3;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#0071e3';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Fill under line
+  ctx.lineTo((distHist.length - 1) * xStep, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,113,227,0.10)';
+  ctx.fill();
+}
+
+// ── ATE RMSE chart ─────────────────────────────────────────────────────────
+function drawAte() {
+  const { ctx, W, H } = setupCanvas('ate-chart');
+  ctx.clearRect(0, 0, W, H);
+  if (ateHist.length < 2) return;
+
+  const maxRmse = Math.max(...ateHist.map(p => p.rmse), 0.05);
+  const xStep   = W / (HIST - 1);
+
+  // 0.15 m threshold band (green zone)
+  ctx.fillStyle = 'rgba(52,199,89,0.06)';
+  ctx.fillRect(0, H - (0.15 / maxRmse) * (H - 6) - 3, W,
+               (0.15 / maxRmse) * (H - 6));
+
+  // Data line
+  ctx.beginPath();
+  ateHist.forEach((p, i) => {
+    const x = i * xStep;
+    const y = H - (p.rmse / maxRmse) * (H - 6) - 3;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  const last = ateHist[ateHist.length - 1].rmse;
+  ctx.strokeStyle = last < 0.15 ? '#34c759' : last < 0.4 ? '#ff9500' : '#ff3b30';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Fill
+  ctx.lineTo((ateHist.length - 1) * xStep, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = last < 0.15 ? 'rgba(52,199,89,0.09)'
+                : last < 0.4  ? 'rgba(255,149,0,0.09)'
+                :                'rgba(255,59,48,0.09)';
+  ctx.fill();
+
+  // 0.15 m label
+  const ty = H - (0.15 / maxRmse) * (H - 6) - 3;
+  ctx.fillStyle = '#34c759';
+  ctx.font = `${Math.round(9 * devicePixelRatio) / devicePixelRatio}px -apple-system, Helvetica Neue`;
+  ctx.fillText('0.15 m', 4, ty - 3);
+
+  // Time axis labels
+  if (ateHist.length > 1) {
+    ctx.fillStyle = '#aeaeb2';
+    ctx.font = `${Math.round(8 * devicePixelRatio) / devicePixelRatio}px -apple-system, Helvetica Neue`;
+    ctx.fillText(ateHist[0].t.toFixed(0) + 's', 4, H - 2);
+    ctx.textAlign = 'right';
+    ctx.fillText(ateHist[ateHist.length-1].t.toFixed(0) + 's', W - 4, H - 2);
+    ctx.textAlign = 'left';
+  }
+}
+
+// ── Post-run chart renderer ────────────────────────────────────────────────
+function drawPostChart(id, data, opts) {
+  const c = document.getElementById(id);
+  if (!c || data.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const CW  = c.offsetWidth;
+  const CH  = +(c.getAttribute('data-h') || 140);
+  if (CW === 0) return;
+  c.width  = CW * dpr;
+  c.height = CH * dpr;
+  c.style.height = CH + 'px';
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const { color = '#0071e3', fill = 'rgba(0,113,227,0.10)',
+          refs = [], step = false, yAxis = false, yUnit = 'm', endLabel = false } = opts || {};
+
+  const stride = Math.max(1, Math.ceil(data.length / 700));
+  const pts = data.filter((_, i) => i % stride === 0);
+  if (pts.length < 2) return;
+
+  const tMin = pts[0].t, tMax = pts[pts.length - 1].t, tSpan = tMax - tMin || 1;
+  const vMin = opts.vMin ?? 0;
+  const vMax = opts.vMax ?? Math.max(...pts.map(p => p.v), vMin + 0.001);
+  const vSpan = vMax - vMin || 1;
+  const PL = yAxis ? 38 : 4, PR = 4, PT = 16, PB = 18;
+
+  const tx = t => PL + (t - tMin) / tSpan * (CW - PL - PR);
+  const ty = v => PT + (1 - (v - vMin) / vSpan) * (CH - PT - PB);
+
+  // Y-axis labels and grid lines
+  if (yAxis) {
+    // Pick ~4 round tick values between vMin and vMax
+    const rawStep = vSpan / 4;
+    const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+    const niceStep = Math.ceil(rawStep / mag) * mag;
+    const tickStart = Math.ceil(vMin / niceStep) * niceStep;
+    ctx.font = '9px -apple-system, Helvetica Neue'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let v = tickStart; v <= vMax + niceStep * 0.01; v += niceStep) {
+      const y = ty(v);
+      if (y < PT - 2 || y > CH - PB + 2) continue;
+      // Grid line
+      ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 0.5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(CW - PR, y); ctx.stroke();
+      // Label
+      ctx.fillStyle = '#6e6e73';
+      const dec = v === 0 ? 0 : v < 0.01 ? 3 : v < 0.1 ? 3 : v < 1 ? 2 : v < 10 ? 1 : 0;
+      ctx.fillText(v.toFixed(dec) + yUnit, PL - 4, y);
+    }
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+
+  // Reference lines
+  for (const r of refs) {
+    const ry = ty(r.y);
+    if (ry < 0 || ry > CH) continue;
+    ctx.beginPath(); ctx.moveTo(PL, ry); ctx.lineTo(CW - PR, ry);
+    ctx.strokeStyle = r.color || 'rgba(255,149,0,0.55)';
+    ctx.lineWidth = 1; ctx.setLineDash(r.dash || [5, 4]); ctx.stroke();
+    ctx.setLineDash([]);
+    if (r.label) {
+      ctx.fillStyle = r.color || '#ff9500';
+      ctx.font = `bold 8px -apple-system, Helvetica Neue`;
+      ctx.fillText(r.label, PL + 4, Math.max(ry - 3, PT + 9));
+    }
+  }
+
+  // Data line
+  ctx.beginPath();
+  pts.forEach((p, i) => {
+    const x = tx(p.t), y = ty(p.v);
+    if (i === 0) { ctx.moveTo(x, y); return; }
+    if (step) ctx.lineTo(tx(pts[i - 1].t + (p.t - pts[i - 1].t) * 0.999), ty(pts[i - 1].v));
+    ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Fill under line
+  ctx.lineTo(tx(pts[pts.length - 1].t), CH - PB);
+  ctx.lineTo(tx(pts[0].t), CH - PB);
+  ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+
+  // End-of-line value label
+  if (endLabel && pts.length > 0) {
+    const last = pts[pts.length - 1];
+    const lx = tx(last.t), ly = ty(last.v);
+    const label = last.v.toFixed(3) + 'm';
+    ctx.font = 'bold 9px -apple-system, Helvetica Neue';
+    const tw = ctx.measureText(label).width;
+    const lxClamped = Math.min(lx, CW - PR - tw - 2);
+    const lyClamped = Math.max(ly, PT + 9);
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText(label, lxClamped - tw - 2, lyClamped);
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // X-axis ticks
+  const xTickCount = Math.max(2, Math.floor((CW - PL - PR) / 48));
+  const rawXStep = tSpan / xTickCount;
+  const xMag = Math.pow(10, Math.floor(Math.log10(rawXStep || 1)));
+  const niceXStep = Math.ceil(rawXStep / xMag) * xMag;
+  ctx.fillStyle = '#aeaeb2'; ctx.font = '8px -apple-system, Helvetica Neue'; ctx.textBaseline = 'alphabetic';
+  for (let t = 0; t <= tMax + niceXStep * 0.01; t += niceXStep) {
+    if (t > tMax + niceXStep * 0.5) break;
+    const x = tx(tMin + t);
+    if (x < PL - 1 || x > CW - PR + 1) continue;
+    // Tick grid line
+    ctx.strokeStyle = 'rgba(0,0,0,0.05)'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, CH - PB); ctx.stroke();
+    // Label
+    ctx.textAlign = t === 0 ? 'left' : (t + niceXStep > tMax ? 'right' : 'center');
+    ctx.fillText(Math.round(t) + 's', x, CH - 3);
+  }
+  ctx.textAlign = 'left';
+}
+
+// Bin cumulative collision count into rate-per-5s windows
+function _collRate(data, binSec) {
+  if (data.length < 2) return data;
+  const out = [];
+  const tMax = data[data.length - 1].t;
+  for (let t0 = 0; t0 + binSec <= tMax + binSec; t0 += binSec) {
+    const t1 = t0 + binSec;
+    const a  = data.find(p => p.t >= t0);
+    const b  = [...data].reverse().find(p => p.t <= t1);
+    if (a && b && b.t > a.t) out.push({ t: (t0 + t1) / 2, v: (b.v - a.v) / binSec });
+  }
+  return out.length ? out : data;
+}
+
+
+// ── Closest point on a path segment ──────────────────────────────────────
+function _nearestOnPath(px, py, planned) {
+  let minD = Infinity, nearX = px, nearY = py;
+  for (let i = 0; i < planned.length - 1; i++) {
+    const [ax, ay] = planned[i], [bx, by] = planned[i + 1];
+    const dx = bx - ax, dy = by - ay, len2 = dx*dx + dy*dy;
+    const t  = len2 < 1e-10 ? 0 : Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / len2));
+    const cx = ax + t*dx, cy = ay + t*dy;
+    const d  = Math.hypot(px - cx, py - cy);
+    if (d < minD) { minD = d; nearX = cx; nearY = cy; }
+  }
+  return { d: minD, nx: nearX, ny: nearY };
+}
+
+function _devColor(d) {
+  if (d < 0.2)  return '#34c759';   // green  — on track
+  if (d < 0.5)  return '#ff9500';   // amber  — drifting
+  return '#ff3b30';                  // red    — significant deviation
+}
+
+// ── Deviation-over-time chart (replaces 2-D path comparison) ─────────────
+function drawDevChart(id, planned, actual, totalSec) {
+  const c = document.getElementById(id);
+  if (!c || !planned || !actual || planned.length < 2 || actual.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const CW  = c.offsetWidth;
+  const CH  = +(c.getAttribute('data-h') || 200);
+  if (CW === 0) return;
+  c.width  = CW * dpr;
+  c.height = CH * dpr;
+  c.style.height = CH + 'px';
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // Per-point deviation (distance to nearest planned segment)
+  const devs = actual.map(([x, y]) => _nearestOnPath(x, y, planned).d);
+  const N = devs.length;
+  const THRESHOLD = 0.5;
+  const maxV = Math.max(THRESHOLD * 1.25, ...devs);
+
+  const PADL = 54, PADR = 16, PADT = 16, PADB = 32;
+  const W = CW - PADL - PADR, H = CH - PADT - PADB;
+
+  const sx = i => PADL + (i / (N - 1 || 1)) * W;
+  const sy = v => PADT + H - (v / maxV) * H;
+
+  // Background
+  ctx.fillStyle = 'rgba(0,0,0,0)'; ctx.fillRect(0, 0, CW, CH);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 0.5;
+  const ySteps = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8].filter(v => v <= maxV * 1.05);
+  ySteps.forEach(v => {
+    const y = sy(v);
+    ctx.beginPath(); ctx.moveTo(PADL, y); ctx.lineTo(PADL + W, y); ctx.stroke();
+  });
+  // Vertical grid (~8 ticks)
+  const dur = (totalSec && totalSec > 0) ? +totalSec : N;
+  const xTicks = 8;
+  for (let i = 0; i <= xTicks; i++) {
+    const x = PADL + (i / xTicks) * W;
+    ctx.beginPath(); ctx.moveTo(x, PADT); ctx.lineTo(x, PADT + H); ctx.stroke();
+  }
+
+  // Dashed threshold line at 0.5m
+  ctx.strokeStyle = '#ff9500'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  const ty = sy(THRESHOLD);
+  ctx.beginPath(); ctx.moveTo(PADL, ty); ctx.lineTo(PADL + W, ty); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Colored line segments
+  ctx.lineWidth = 2.2;
+  for (let i = 1; i < N; i++) {
+    const avg = (devs[i-1] + devs[i]) / 2;
+    ctx.strokeStyle = _devColor(avg);
+    ctx.beginPath();
+    ctx.moveTo(sx(i-1), sy(devs[i-1]));
+    ctx.lineTo(sx(i),   sy(devs[i]));
+    ctx.stroke();
+  }
+
+  // Y axis labels
+  ctx.fillStyle = '#6e6e73'; ctx.font = '10px -apple-system, Helvetica Neue';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ySteps.forEach(v => ctx.fillText(v.toFixed(1) + 'm', PADL - 6, sy(v)));
+
+  // Y axis title
+  ctx.save();
+  ctx.translate(13, PADT + H / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#aeaeb2'; ctx.font = '9px -apple-system, Helvetica Neue';
+  ctx.fillText('metres from planned path', 0, 0);
+  ctx.restore();
+
+  // X axis labels
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#6e6e73'; ctx.font = '10px -apple-system, Helvetica Neue';
+  for (let i = 0; i <= xTicks; i++) {
+    const sec = Math.round((i / xTicks) * dur);
+    ctx.fillText(sec + 's', PADL + (i / xTicks) * W, PADT + H + 5);
+  }
+
+  // X axis title
+  ctx.fillStyle = '#aeaeb2'; ctx.font = '9px -apple-system, Helvetica Neue';
+  ctx.fillText('time (seconds)', PADL + W / 2, PADT + H + 20);
+}
+
+// ── Show post-run section ─────────────────────────────────────────────────
+function _showPostRun(d) {
+  if (postRunShown) return;
+  postRunShown = true;
+  runDuration = d.time_to_goal ?? null;
+
+  const sec = document.getElementById('post-run');
+  sec.style.display = 'block';
+
+  // Populate persistent solved banner
+  const secs = d.time_to_goal != null ? (+d.time_to_goal).toFixed(1) + ' s' : '';
+  const seed = d.seed != null ? `  ·  SEED ${d.seed}` : '';
+  document.getElementById('solved-banner-sub').textContent =
+    (secs ? `solved in ${secs}` : 'goal reached') + seed;
+
+  // KPI table
+  const locQual   = peakAte < 0.15 ? 'GOOD' : peakAte < 0.40 ? 'FAIR' : 'POOR';
+  const locCls    = locQual === 'GOOD' ? 'kv-good' : locQual === 'FAIR' ? 'kv-warn' : 'kv-err';
+  const effVal    = d.path_eff_live != null ? (+d.path_eff_live).toFixed(3) + 'x' : '—';
+  const clrVal    = d.min_wall_clearance != null && d.min_wall_clearance < 9
+                    ? fmt(d.min_wall_clearance, 2) + ' m' : '—';
+  const ateFin    = d.ate_rmse != null ? +d.ate_rmse : null;
+  const ateFinCls = ateFin == null ? '' : ateFin < 0.05 ? 'kv-good' : ateFin < 0.1 ? 'kv-warn' : 'kv-err';
+  const atePkCls  = peakAte < 0.05 ? 'kv-good' : peakAte < 0.1 ? 'kv-warn' : 'kv-err';
+
+  const rows = [
+    ['Seed',                  d.seed ?? '—',                                                      ''],
+    ['Grid',                  d.grid_size ? `${d.grid_size}×${d.grid_size}` : '—',               ''],
+    ['Time to goal',          d.time_to_goal != null ? (+d.time_to_goal).toFixed(1) + ' s' : '—',''],
+    ['Waypoints completed',   d.n_waypoints  ? `${d.waypoints_done} / ${d.n_waypoints}` : '—',  ''],
+    ['Wall collisions',       d.n_wall_collisions ?? 0,                                           'kv-err'],
+    ['Stuck events',          d.n_stuck_events ?? 0,                                              (+d.n_stuck_events || 0) === 0 ? 'kv-good' : 'kv-err'],
+    ['Min wall clearance',    clrVal,                                                              ''],
+    ['Path efficiency',       effVal,                                                              ''],
+    ['ATE RMSE (final)',      ateFin != null ? fmt(ateFin, 3) + ' m' : '—',                      ateFinCls],
+    ['ATE RMSE (peak)',       fmt(peakAte, 3) + ' m',                                             atePkCls],
+    ['Localization quality',  locQual,                                                             locCls],
+  ];
+
+  document.getElementById('kpi-table').innerHTML = rows.map(([k, v, cls]) =>
+    `<tr class="${cls}"><td>${k}</td><td>${v}</td></tr>`
+  ).join('');
+
+  // Draw charts once layout is ready
+  requestAnimationFrame(() => {
+    drawPostChart('pr-dist', runDist, {
+      color: '#0071e3', fill: 'rgba(0,113,227,0.10)', vMin: 0, yAxis: true,
+    });
+    drawPostChart('pr-ate', runAte, {
+      color: '#34c759', fill: 'rgba(52,199,89,0.07)', vMin: 0,
+      refs: [{ y: 0.15, color: '#ff9500', label: '0.15 m' }],
+      endLabel: true, yAxis: true,
+    });
+    const collRate = _collRate(runColl, 5);
+    drawPostChart('pr-coll', collRate, {
+      color: '#ff3b30', fill: 'rgba(255,59,48,0.10)', vMin: 0, step: true, yAxis: true, yUnit: '',
+    });
+    drawPostChart('pr-eff', runEff, {
+      color: '#ff9500', fill: 'rgba(255,149,0,0.08)',
+      refs: [{ y: 1.0, color: 'rgba(52,199,89,0.70)', label: '1.0× optimal' }],
+      yAxis: true, yUnit: 'x',
+    });
+    drawDevChart('pr-path', plannedPath, gtTrajectory, d.time_to_goal);
+    requestAnimationFrame(() => sec.classList.add('visible'));
+  });
+}
+
+// ── Main update (called on every SSE event) ────────────────────────────────
+function update(d) {
+  ticks++;
+  document.getElementById('tick-counter').textContent = `${ticks} updates`;
+
+  // Accumulate full-run history for post-run charts
+  if (d.sim_time != null) {
+    const t = +d.sim_time;
+    if (d.dist_to_goal       != null) runDist.push({ t, v: +d.dist_to_goal });
+    if (d.ate_rmse            != null) runAte.push ({ t, v: +d.ate_rmse });
+    if (d.n_wall_collisions   != null) runColl.push({ t, v: +d.n_wall_collisions });
+    if (d.path_eff_live       != null) runEff.push ({ t, v: +d.path_eff_live });
+    if (d.planned_path  != null) plannedPath  = d.planned_path;
+    if (d.gt_trajectory != null) gtTrajectory = d.gt_trajectory;
+  }
+
+  // ── Seed / grid — header badge ────────────────────────────────────────────
+  if (d.seed != null) {
+    const badge = document.getElementById('seed-badge');
+    const txt = `SEED ${d.seed}  ·  ${d.grid_size}×${d.grid_size}`;
+    setVal(badge, txt);
+  }
+  setVal(document.getElementById('grid-val'),
+         d.grid_size ? `${d.grid_size}×${d.grid_size}` : '—');
+
+  // ── Solve status ──────────────────────────────────────────────────────────
+  const goalEl = document.getElementById('goal-val');
+  if (d.goal_reached) {
+    if (goalEl.className !== 'primary goal-yes') {
+      setVal(goalEl, 'YES ✓', 'primary goal-yes');
+      _showSolvedOverlay(d.sim_time);
+      // Delay post-run section until overlay animation finishes (~3.8 s)
+      setTimeout(() => _showPostRun(d), 4000);
+    }
+  } else {
+    setVal(goalEl, 'NO…', 'primary c-goal-no');
+  }
+
+  // ── Distance to goal + sparkline ──────────────────────────────────────────
+  const dist = d.dist_to_goal;
+  if (dist != null) {
+    if (maxDist == null || dist > maxDist) maxDist = dist;
+    if (startDist == null) startDist = dist;
+    distHist.push(dist);
+    if (distHist.length > HIST) distHist.shift();
+
+    setVal(document.getElementById('dist-val'), fmt(dist) + ' m');
+
+    // path_progress comes from viz._path_progress() — same value as MuJoCo overlay bar
+    const rawPct = d.path_progress != null
+      ? Math.min(100, d.path_progress * 100)
+      : (startDist > 0 ? Math.min(100, (startDist - dist) / startDist * 100) : 0);
+    const pctInt = Math.round(rawPct);
+
+    lastPct = rawPct;
+    drawSpark(rawPct);
+
+    // solve-status dist bar
+    const bar = document.getElementById('dist-bar');
+    bar.style.width = rawPct + '%';
+    bar.style.background = rawPct > 90 ? '#34c759' : rawPct > 50 ? '#0071e3' : '#ff9500';
+    document.getElementById('dist-bar-label').textContent = pctInt + '% OF PATH DONE';
+  }
+
+  // ── Sim time (big clock) ──────────────────────────────────────────────────
+  setVal(document.getElementById('sim-time'),
+         d.sim_time != null ? fmt(d.sim_time, 1) + ' s' : '—');
+
+  // Speed (fixed label from --speed arg)
+  if (d.speed != null) {
+    setVal(document.getElementById('rtf-val'), (+d.speed).toFixed(1) + 'x');
+  }
+
+  // ── Safety ────────────────────────────────────────────────────────────────
+  const coll  = d.n_wall_collisions ?? 0;
+  const stuck = d.n_stuck_events    ?? 0;
+
+  setVal(document.getElementById('coll-val'), String(coll),
+         'primary ' + (coll === 0 ? 'c-yes' : coll < 5 ? 'c-warn' : 'c-err'));
+  setVal(document.getElementById('stuck-val'), String(stuck),
+         'primary ' + (stuck === 0 ? 'c-yes' : 'c-warn'));
+
+  if (d.min_wall_clearance != null && d.min_wall_clearance < 9.0) {
+    const cl = +d.min_wall_clearance;
+    const cls = 'primary ' + (cl > 0.35 ? 'c-yes' : cl > 0.25 ? 'c-warn' : 'c-err');
+    setVal(document.getElementById('clearance-val'), fmt(cl, 2) + ' m', cls);
+  }
+
+  // ── Minimap ───────────────────────────────────────────────────────────────
+  if (d.minimap_b64) {
+    const img = document.getElementById('minimap-img');
+    const ph  = document.getElementById('minimap-placeholder');
+    img.src = 'data:image/jpeg;base64,' + d.minimap_b64;
+    img.style.display = 'block';
+    if (ph) ph.style.display = 'none';
+  }
+
+  // ── Capture health ────────────────────────────────────────────────────────
+  setVal(document.getElementById('nav-hz'),
+         d.nav_hz != null ? fmt(d.nav_hz, 1) + ' Hz' : '—');
+  setVal(document.getElementById('cam-hz'),
+         d.cam_hz != null ? fmt(d.cam_hz, 1) + ' Hz' : '—');
+
+  const locEl = document.getElementById('loc-err');
+  setVal(locEl, d.loc_err != null ? fmt(d.loc_err, 3) + ' m' : '—',
+         statusClass(d.loc_err, 0.15, 0.5));
+
+  setVal(document.getElementById('pos-val'),
+         d.x_est != null ? `(${fmt(d.x_est,2)}, ${fmt(d.y_est,2)})` : '—');
+
+  // Waypoints completed
+  if (d.n_waypoints != null) {
+    setVal(document.getElementById('wp-val'), `${d.waypoints_done} / ${d.n_waypoints}`);
+  }
+
+  // Live path efficiency (1.0 = perfect, >1.0 = excess travel)
+  if (d.path_eff_live != null) {
+    const eff = +d.path_eff_live;
+    const cls = eff < 1.15 ? 'mval c-yes' : eff < 1.5 ? 'mval c-warn' : 'mval c-err';
+    setVal(document.getElementById('eff-val'), eff.toFixed(2) + 'x', cls);
+  }
+
+  // Heading-rate RMS (smoothness; lower = smoother turns)
+  if (d.heading_rms != null) {
+    const hr = +d.heading_rms;
+    const cls = hr < 0.45 ? 'mval c-yes' : hr < 0.7 ? 'mval c-ok' : 'mval c-warn';
+    setVal(document.getElementById('hrms-val'), hr.toFixed(3) + ' r/s', cls);
+  }
+
+  // ── ATE RMSE chart ────────────────────────────────────────────────────────
+  if (d.ate_rmse != null && d.sim_time != null) {
+    ateHist.push({ t: d.sim_time, rmse: d.ate_rmse });
+    if (ateHist.length > HIST) ateHist.shift();
+    if (d.ate_rmse > peakAte) peakAte = d.ate_rmse;
+    drawAte();
+
+    setVal(document.getElementById('ate-now'),
+           fmt(d.ate_rmse, 3) + ' m',
+           statusClass(d.ate_rmse, 0.15, 0.5));
+    setVal(document.getElementById('ate-peak'),
+           fmt(peakAte, 3) + ' m',
+           statusClass(peakAte, 0.15, 0.5));
+    setVal(document.getElementById('ate-n'), String(ateHist.length));
+
+    // Quality badge
+    const qEl = document.getElementById('loc-quality');
+    if (d.ate_rmse < 0.15)      { qEl.textContent = 'GOOD'; qEl.className = 'q-good'; }
+    else if (d.ate_rmse < 0.40) { qEl.textContent = 'FAIR'; qEl.className = 'q-fair'; }
+    else                        { qEl.textContent = 'POOR'; qEl.className = 'q-poor'; }
+  }
+}
+
+// ── MAZE SOLVED full-screen overlay ───────────────────────────────────────
+function _showSolvedOverlay(simTime) {
+  const ov  = document.getElementById('solved-overlay');
+  const sub = document.getElementById('solved-overlay-sub');
+  const secs = simTime != null ? (+simTime).toFixed(1) + ' s' : '';
+  sub.textContent = secs ? `solved in ${secs}` : 'goal reached';
+  ov.classList.remove('show');
+  void ov.offsetWidth;
+  ov.classList.add('show');
+  ov.addEventListener('animationend', () => ov.classList.remove('show'), { once: true });
+}
+
+// ── SSE connection + auto-reconnect ───────────────────────────────────────
+function connect() {
+  const pill = document.getElementById('conn-pill');
+  const dot  = document.getElementById('dot');
+
+  pill.textContent = ' CONNECTING…';
+  pill.prepend(dot);
+  pill.className   = '';
+  dot.className    = 'dot';
+
+  const es = new EventSource('/events');
+
+  es.onopen = () => {
+    pill.className   = 'live';
+    dot.className    = 'dot pulse';
+    pill.textContent = '';
+    pill.prepend(dot);
+    pill.appendChild(document.createTextNode(' LIVE'));
+  };
+
+  es.onmessage = ev => {
+    try { update(JSON.parse(ev.data)); } catch (_) {}
+  };
+
+  es.onerror = () => {
+    pill.className   = '';
+    dot.className    = 'dot';
+    pill.textContent = '';
+    pill.prepend(dot);
+    pill.appendChild(document.createTextNode(' RECONNECTING…'));
+    es.close();
+    setTimeout(connect, 2500);
+  };
+}
+
+window.addEventListener('resize', () => {
+  drawSpark(lastPct); drawAte();
+  if (postRunShown) {
+    drawPostChart('pr-dist', runDist, { color: '#0071e3', fill: 'rgba(0,113,227,0.10)', vMin: 0, yAxis: true });
+    drawPostChart('pr-ate',  runAte,  { color: '#34c759', fill: 'rgba(52,199,89,0.07)',  vMin: 0, refs: [{ y: 0.15, color: '#ff9500', label: '0.15 m' }] });
+    drawPostChart('pr-coll', _collRate(runColl, 5), { color: '#ff3b30', fill: 'rgba(255,59,48,0.10)', vMin: 0, step: true });
+    drawPostChart('pr-eff',  runEff,  { color: '#ff9500', fill: 'rgba(255,149,0,0.08)', refs: [{ y: 1.0, color: 'rgba(52,199,89,0.70)', label: '1.0× optimal' }] });
+    drawDevChart('pr-path', plannedPath, gtTrajectory, runDuration);
+  }
+});
+connect();
+</script>
+</body>
+</html>
