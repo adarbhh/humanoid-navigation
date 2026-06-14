@@ -1,0 +1,23 @@
+How to run in CMD ?
+
+1. setup.bat
+
+2. conda activate robotics-assignment
+python scripts/view_maze.py --seed 42
+
+3. conda activate robotics-assignment
+python runner.py --seed 42
+
+4. conda activate robotics-assignment
+python runner.py --seed 42 --no-viz --record
+
+5. conda activate robotics-assignment
+python scripts/batch_eval.py
+python report/generate_report.py
+
+6. live demo:
+conda activate robotics-assignment
+demo.bat 42
+
+live demo with obstacles:
+demo_dynamic.bat 42

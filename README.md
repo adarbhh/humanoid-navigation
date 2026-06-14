@@ -37,11 +37,12 @@ make demo SEED=$RANDOM   # fresh random maze
 | Command | What it does |
 |---------|--------------|
 | `make setup` | Full one-command environment setup |
-| `make maze SEED=N` | Generate maze N, write XML + solution path |
-| `make run SEED=N` | Run one navigation episode, record dataset |
-| `make batch` | Run 20 held-out seeds, collect KPIs |
-| `make report` | Execute analysis notebook → HTML report |
-| `make demo SEED=N` | Live demo with real-time KPI dashboard |
+| `make maze SEED=N` | Generate maze N, write XML + solution path to `mazes/` |
+| `make run SEED=N` | Run one navigation episode (headless) |
+| `make record SEED=N` | Run episode + save HDF5 dataset to `runs/` |
+| `make batch` | Run 25 held-out seeds headlessly, collect KPIs |
+| `make report` | Generate `report/kpi_report.html` from batch results |
+| `make demo SEED=N` | Live demo: MuJoCo viewer + real-time browser dashboard |
 | `make test` | Run all tests |
 
 ---
@@ -53,9 +54,7 @@ make demo SEED=$RANDOM   # fresh random maze
 ├── setup.sh / setup.bat        # One-command environment setup
 ├── environment.yml             # Pinned conda/pip dependencies
 ├── Makefile                    # All entry points
-├── runner.py                   # Single episode orchestrator
-├── batch_runner.py             # Parallel batch runner
-├── demo.py                     # Live demo with dashboard
+├── runner.py                   # Single episode orchestrator (run / record / demo)
 │
 ├── maze/
 │   └── generator.py            # Seeded procedural maze → MuJoCo XML
@@ -63,27 +62,33 @@ make demo SEED=$RANDOM   # fresh random maze
 ├── robot/
 │   ├── model/g1/               # Unitree G1 XML + mesh assets (downloaded)
 │   ├── sensors.py              # Sensor extraction from mujoco.Data
+│   ├── recorder.py             # Crash-safe HDF5 multi-stream recorder
 │   └── walking_policy/         # Velocity command interface
 │
 ├── navigation/
 │   ├── occupancy_grid.py       # 2D grid updated from LiDAR scans
 │   ├── localization.py         # IMU dead-reckoning + ICP scan matching
 │   ├── planner.py              # A* global path planner
-│   └── controller.py          # Pure-pursuit local planner → (vx, vy, yaw)
+│   └── controller.py           # Pure-pursuit local planner → (vx, vy, yaw)
 │
-├── data/
-│   ├── recorder.py             # Crash-safe HDF5 multi-stream recorder
-│   └── schema.py               # Stream definitions and dtypes
+├── dashboard/
+│   └── index.html              # Live browser KPI dashboard (SSE)
 │
-├── analysis/
-│   ├── kpi.py                  # KPI computation from HDF5 datasets
-│   └── report.ipynb            # KPI report notebook
+├── report/
+│   ├── generate_report.py      # KPI report generator → kpi_report.html
+│   └── kpi_report.html         # Generated report (after make report)
 │
 ├── scripts/
+│   ├── batch_eval.py           # Headless batch runner (25 held-out seeds)
 │   └── download_models.py      # Fetch G1 model from MuJoCo Menagerie
 │
+├── seeds/
+│   ├── held_out.txt            # 25 held-out evaluation seeds
+│   └── seen.txt                # 10 seen seeds (development)
+│
 └── tests/
-    └── test_phase1_setup.py    # Phase 1 smoke test
+    ├── test_phase1_setup.py    # Environment + model smoke test
+    └── test_phase2_maze.py     # Maze generator tests
 ```
 
 ---

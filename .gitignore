@@ -26,3 +26,5 @@ Thumbs.db
 
 # MuJoCo generated
 /tmp/maze_*
+runs/ 
+*.h5 

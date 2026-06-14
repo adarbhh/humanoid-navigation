@@ -1,117 +1,114 @@
 """
 Phase 1 smoke test: MuJoCo loads, G1 model loads, basic sim step works.
-Run standalone: python tests/test_phase1_setup.py
+
+Run with pytest:   pytest tests/test_phase1_setup.py -v
+Run standalone:    python tests/test_phase1_setup.py
 """
 
 import sys
 from pathlib import Path
 
+import numpy as np
+import pytest
+
 ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
+MODEL_DIR = ROOT / "robot" / "model" / "g1"
 
 
-def test_mujoco_import():
+# ── Fixtures ──────────────────────────────────────────────────────────────────
+
+@pytest.fixture(scope="module")
+def mj():
     import mujoco
-    print(f"  mujoco {mujoco.__version__}  OK")
     return mujoco
 
 
-def test_numpy_import():
-    import numpy as np
-    print(f"  numpy {np.__version__}  OK")
+@pytest.fixture(scope="module")
+def scene_xml():
+    candidates = list(MODEL_DIR.glob("*.xml")) if MODEL_DIR.exists() else []
+    assert candidates, (
+        f"No XML files in {MODEL_DIR}. Run: python scripts/download_models.py"
+    )
+    scene = next((x for x in candidates if x.name == "scene.xml"), candidates[0])
+    return scene
 
 
-def test_g1_model_exists():
-    model_dir = ROOT / "robot" / "model" / "g1"
-    candidates = list(model_dir.glob("*.xml")) if model_dir.exists() else []
-    if not candidates:
-        print(f"  ERROR: no XML files in {model_dir}")
-        print(f"  Run: python scripts/download_models.py")
-        sys.exit(1)
-    print(f"  G1 model dir: {model_dir}")
-    for f in sorted(candidates):
-        print(f"    {f.name}")
-    return candidates
-
-
-def test_g1_loads(mujoco, xml_files):
-    """Load the G1 scene XML and confirm expected joints/sensors exist."""
-    # Prefer scene.xml (has floor + lighting), fall back to g1.xml
-    scene = next((x for x in xml_files if x.name == "scene.xml"), xml_files[0])
-    print(f"  Loading {scene.name} ...")
-
-    model = mujoco.MjModel.from_xml_path(str(scene))
-    data  = mujoco.MjData(model)
-
-    print(f"  nq={model.nq}  nv={model.nv}  nu={model.nu}  nbody={model.nbody}")
-    assert model.nq > 0,  "No DoFs found — model may be wrong"
-    assert model.nu > 0,  "No actuators found"
-    print(f"  Model loaded  OK")
+@pytest.fixture(scope="module")
+def model_data(mj, scene_xml):
+    model = mj.MjModel.from_xml_path(str(scene_xml))
+    data  = mj.MjData(model)
     return model, data
 
 
-def test_sim_step(mujoco, model, data):
-    """Run 100 steps and confirm sim time advances without NaN."""
-    import numpy as np
-    mujoco.mj_resetData(model, data)
+# ── Tests ─────────────────────────────────────────────────────────────────────
+
+def test_mujoco_version(mj):
+    """MuJoCo import and version check."""
+    parts = [int(x) for x in mj.__version__.split(".")]
+    assert parts[0] >= 3, f"Expected mujoco >= 3.x, got {mj.__version__}"
+
+
+def test_g1_xml_files_exist():
+    """G1 model directory contains expected XML files."""
+    assert MODEL_DIR.exists(), f"Model dir missing: {MODEL_DIR}"
+    xmls = {x.name for x in MODEL_DIR.glob("*.xml")}
+    for expected in ("g1.xml", "scene.xml"):
+        assert expected in xmls, f"{expected} missing from model dir"
+
+
+def test_g1_model_loads(model_data):
+    """G1 scene.xml loads without error and has sane dimensions."""
+    model, _ = model_data
+    assert model.nq == 36,  f"Expected nq=36, got {model.nq}"
+    assert model.nv == 35,  f"Expected nv=35, got {model.nv}"
+    assert model.nu == 29,  f"Expected nu=29, got {model.nu}"
+    assert model.nbody == 31, f"Expected nbody=31, got {model.nbody}"
+
+
+def test_sim_runs_100_steps(mj, model_data):
+    """100 simulation steps complete with no NaN/Inf in state."""
+    model, data = model_data
+    mj.mj_resetData(model, data)
     for _ in range(100):
-        mujoco.mj_step(model, data)
+        mj.mj_step(model, data)
     assert np.isfinite(data.qpos).all(), "qpos contains NaN/Inf after 100 steps"
+    assert np.isfinite(data.qvel).all(), "qvel contains NaN/Inf after 100 steps"
     assert data.time > 0, "Simulation time did not advance"
-    print(f"  100 sim steps  OK  (sim_time={data.time:.4f}s)")
 
 
-def test_bodies_and_joints(model):
-    """Print body/joint names to confirm G1 structure."""
-    import mujoco
-    print("  Bodies:")
-    for i in range(min(model.nbody, 10)):
-        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, i)
-        print(f"    [{i}] {name}")
-    if model.nbody > 10:
-        print(f"    ... and {model.nbody - 10} more")
+def test_imu_sensors_present(mj, model_data):
+    """Named IMU sensors from Menagerie G1 model exist."""
+    model, _ = model_data
+    expected = {
+        "imu-torso-angular-velocity",
+        "imu-torso-linear-acceleration",
+        "imu-pelvis-angular-velocity",
+        "imu-pelvis-linear-acceleration",
+    }
+    found = set()
+    for i in range(model.nsensor):
+        name = mj.mj_id2name(model, mj.mjtObj.mjOBJ_SENSOR, i)
+        if name in expected:
+            found.add(name)
+    assert found == expected, f"Missing sensors: {expected - found}"
 
 
-def main():
-    print("\n=== Phase 1 Setup Verification ===\n")
-    errors = []
+def test_pelvis_body_exists(mj, model_data):
+    """Pelvis body (used for GT pose extraction) resolves correctly."""
+    model, _ = model_data
+    bid = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, "pelvis")
+    assert bid >= 0, "Body 'pelvis' not found in model"
 
-    try:
-        mujoco = test_mujoco_import()
-    except Exception as e:
-        print(f"  FAIL mujoco import: {e}")
-        sys.exit(1)
 
-    try:
-        test_numpy_import()
-    except Exception as e:
-        errors.append(f"numpy: {e}")
+def test_model_timestep(model_data):
+    """Simulation timestep is 2ms (500 Hz) as expected for G1."""
+    model, _ = model_data
+    assert abs(model.opt.timestep - 0.002) < 1e-6, (
+        f"Expected timestep=0.002, got {model.opt.timestep}"
+    )
 
-    try:
-        xml_files = test_g1_model_exists()
-    except SystemExit:
-        raise
-    except Exception as e:
-        errors.append(f"model files: {e}")
-        xml_files = []
 
-    if xml_files:
-        try:
-            model, data = test_g1_loads(mujoco, xml_files)
-            test_sim_step(mujoco, model, data)
-            test_bodies_and_joints(model)
-        except Exception as e:
-            errors.append(f"G1 sim: {e}")
-
-    print()
-    if errors:
-        print("FAILURES:")
-        for e in errors:
-            print(f"  - {e}")
-        sys.exit(1)
-    else:
-        print("=== All Phase 1 checks PASSED ===")
-
+# ── Standalone entry point ────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(pytest.main([__file__, "-v"]))

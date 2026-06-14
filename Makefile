@@ -2,6 +2,7 @@ SHELL       := /bin/bash
 ENV         := robotics-assignment
 PYTHON      := conda run -n $(ENV) python
 SEED        ?= 42
+SPEED       ?= 2.0
 
 # ── Setup ──────────────────────────────────────────────────────────────────
 .PHONY: setup
@@ -11,30 +12,34 @@ setup:
 # ── Generate maze (standalone) ─────────────────────────────────────────────
 .PHONY: maze
 maze:
-	$(PYTHON) -m maze.generator --seed $(SEED) --grid-size 10 --out /tmp/maze_$(SEED)
-	@echo "Maze written to /tmp/maze_$(SEED)/"
+	$(PYTHON) -m maze.generator --seed $(SEED) --grid-size 10
+	@echo "Maze written to mazes/seed$(SEED)_size10/"
 
 # ── Run a single navigation episode ────────────────────────────────────────
 .PHONY: run
 run:
 	$(PYTHON) runner.py --seed $(SEED)
 
-# ── Batch KPI run (N=20 held-out seeds) ────────────────────────────────────
+# ── Run episode with data recording ────────────────────────────────────────
+.PHONY: record
+record:
+	$(PYTHON) runner.py --seed $(SEED) --record
+
+# ── Batch KPI run (25 held-out seeds) ──────────────────────────────────────
 .PHONY: batch
 batch:
-	$(PYTHON) batch_runner.py --seeds-file seeds/held_out.txt --workers 4
+	$(PYTHON) scripts/batch_eval.py --seeds seeds/held_out.txt
 
 # ── Generate KPI report ────────────────────────────────────────────────────
 .PHONY: report
 report:
-	$(PYTHON) -m nbconvert --to html --execute analysis/report.ipynb \
-	    --output analysis/report.html
-	@echo "Report written to analysis/report.html"
+	$(PYTHON) report/generate_report.py
+	@echo "Report written to report/kpi_report.html"
 
 # ── Live demo (the money shot) ─────────────────────────────────────────────
 .PHONY: demo
 demo:
-	$(PYTHON) demo.py --seed $(SEED)
+	$(PYTHON) runner.py --seed $(SEED) --speed $(SPEED) --demo
 
 # ── Tests ──────────────────────────────────────────────────────────────────
 .PHONY: test

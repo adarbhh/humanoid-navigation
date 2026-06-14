@@ -1,0 +1,14 @@
+=== PAGE 1 ===
+--seed
+unitree_rl_gym
+
+=== PAGE 2 ===
+kill -9
+
+=== PAGE 3 ===
+# the live demo should be one command
+make demo SEED=$RANDOM # generate fresh maze → run → live KPI view
+make demo SEED=<n>
+
+=== PAGE 4 ===
+
