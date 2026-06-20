@@ -18,11 +18,138 @@ import numpy as np
 
 from navigation.occupancy_grid import OccupancyGrid
 
-# 8-connected moves: (drow, dcol, euclidean_cost_multiplier)
+# 4-connected moves: cardinal directions only so paths stay axis-aligned,
+# matching the orthogonal maze corridors and preventing diagonal wall-corner cuts.
 _MOVES = [
     (-1,  0, 1.0), ( 1,  0, 1.0), ( 0, -1, 1.0), ( 0,  1, 1.0),
-    (-1, -1, 1.414), (-1,  1, 1.414), ( 1, -1, 1.414), ( 1,  1, 1.414),
 ]
+
+
+def plan_weighted_astar(
+    grid:          OccupancyGrid,
+    start_world:   tuple[float, float],
+    goal_world:    tuple[float, float],
+    center_weight: float = 4.0,
+    w:             float = 1.0,
+) -> list[tuple[float, float]]:
+    """
+    Weighted A* with inflation factor w.
+
+    f = g + w * h
+
+    w=1  → standard A* (optimal)
+    w>1  → suboptimal but faster: trades path quality for speed.
+            Path cost is at most w times the optimal cost.
+    Returns simplified world-coordinate waypoints.
+    Returns [] if no path exists.
+    """
+    sr, sc = grid.world_to_cell(*start_world)
+    gr, gc = grid.world_to_cell(*goal_world)
+
+    if not grid.in_bounds(sr, sc) or not grid.in_bounds(gr, gc):
+        return []
+
+    dist_map = grid.distance_transform()
+    max_dist  = float(dist_map.max()) or 1.0
+
+    def h(r: int, c: int) -> float:
+        return np.hypot(r - gr, c - gc) * grid.res
+
+    def edge_cost(r: int, c: int, mult: float) -> float:
+        wall_prox = 1.0 - dist_map[r, c] / max_dist
+        return mult * grid.res + center_weight * wall_prox * grid.res
+
+    open_heap: list = [(w * h(sr, sc), 0.0, sr, sc)]
+    parent:  dict[tuple[int, int], tuple[int, int] | None] = {(sr, sc): None}
+    g_score: dict[tuple[int, int], float]                  = {(sr, sc): 0.0}
+    closed:  set[tuple[int, int]]                          = set()
+
+    while open_heap:
+        _f, g, r, c = heapq.heappop(open_heap)
+
+        if (r, c) in closed:
+            continue
+        closed.add((r, c))
+
+        if r == gr and c == gc:
+            return _simplify(_reconstruct(parent, grid, (gr, gc)))
+
+        for dr, dc, mult in _MOVES:
+            nr, nc = r + dr, c + dc
+            if not grid.in_bounds(nr, nc):
+                continue
+            if grid.grid[nr, nc] == OccupancyGrid.OCCUPIED:
+                continue
+            if (nr, nc) in closed:
+                continue
+            ng = g + edge_cost(nr, nc, mult)
+            if (nr, nc) not in g_score or ng < g_score[(nr, nc)]:
+                g_score[(nr, nc)] = ng
+                parent[(nr, nc)]  = (r, c)
+                heapq.heappush(open_heap, (ng + w * h(nr, nc), ng, nr, nc))
+
+    return []
+
+
+def plan_dijkstra(
+    grid:          OccupancyGrid,
+    start_world:   tuple[float, float],
+    goal_world:    tuple[float, float],
+    center_weight: float = 4.0,
+) -> list[tuple[float, float]]:
+    """
+    Dijkstra on the occupancy grid with corridor-centering cost.
+
+    Identical to plan() but uses no heuristic (h=0), so it expands nodes in
+    order of true cost only.  Guaranteed optimal by cost but explores more
+    cells than A* — measurably slower on large grids.
+    Returns simplified world-coordinate waypoints (turn points only).
+    Returns [] if no path exists.
+    """
+    sr, sc = grid.world_to_cell(*start_world)
+    gr, gc = grid.world_to_cell(*goal_world)
+
+    if not grid.in_bounds(sr, sc) or not grid.in_bounds(gr, gc):
+        return []
+
+    dist_map = grid.distance_transform()
+    max_dist = float(dist_map.max()) or 1.0
+
+    def edge_cost(r: int, c: int, mult: float) -> float:
+        wall_prox = 1.0 - dist_map[r, c] / max_dist
+        return mult * grid.res + center_weight * wall_prox * grid.res
+
+    open_heap: list = [(0.0, sr, sc)]
+    parent:  dict[tuple[int, int], tuple[int, int] | None] = {(sr, sc): None}
+    g_score: dict[tuple[int, int], float]                  = {(sr, sc): 0.0}
+    closed:  set[tuple[int, int]]                          = set()
+
+    while open_heap:
+        g, r, c = heapq.heappop(open_heap)
+
+        if (r, c) in closed:
+            continue
+        closed.add((r, c))
+
+        if r == gr and c == gc:
+            dense = _reconstruct(parent, grid, (gr, gc))
+            return _simplify(dense)
+
+        for dr, dc, mult in _MOVES:
+            nr, nc = r + dr, c + dc
+            if not grid.in_bounds(nr, nc):
+                continue
+            if grid.grid[nr, nc] == OccupancyGrid.OCCUPIED:
+                continue
+            if (nr, nc) in closed:
+                continue
+            ng = g + edge_cost(nr, nc, mult)
+            if (nr, nc) not in g_score or ng < g_score[(nr, nc)]:
+                g_score[(nr, nc)] = ng
+                parent[(nr, nc)]  = (r, c)
+                heapq.heappush(open_heap, (ng, nr, nc))
+
+    return []
 
 
 def plan(

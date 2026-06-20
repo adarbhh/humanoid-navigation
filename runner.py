@@ -61,7 +61,7 @@ from robot.walking_policy.interface import WalkingPolicyInterface
 from robot.recorder    import Recorder
 from navigation.occupancy_grid import OccupancyGrid
 from navigation.localization   import Localizer
-from navigation.planner        import plan
+from navigation.planner        import plan, plan_dijkstra, plan_weighted_astar
 from navigation.controller     import PurePursuitController
 from viz                       import Visualizer
 
@@ -110,12 +110,12 @@ def build_scene(seed: int, grid_size: int, demo: bool = False):
     for i, theta in enumerate(angles):
         site       = torso.add_site()
         site.name  = f"lidar_site_{i:02d}"
-        site.type  = mujoco.mjtGeom.mjGEOM_CYLINDER
-        site.size  = [0.006, 0.006, hl]
+        site.type  = mujoco.mjtGeom.mjGEOM_SPHERE
+        site.size  = [0.001, 0.001, 0.001]
         site.pos   = [hl * np.cos(theta), hl * np.sin(theta), 0.0]
         site.quat  = _pointing_quat(theta)
-        site.rgba  = [1.0, 0.3, 0.0, 0.6]
-        site.group = 4
+        site.rgba  = [0.0, 0.0, 0.0, 0.0]
+        site.group = 5
 
     for i in range(N_LIDAR_RAYS):
         sensor         = spec.add_sensor()
@@ -148,6 +148,9 @@ def run_episode(
     record:     bool  = False,
     speed:      float = 2.0,
     demo:       bool  = False,   # enable live Rich terminal dashboard
+    planner:    str   = "astar",   # "astar", "dijkstra", "wastar3", "wastar10"
+    planner_center_weight: float = 4.0,
+    heuristic_weight: float = 1.0,
 ) -> dict:
     print(f"\n=== Episode  seed={seed}  grid={grid_size}x{grid_size} ===\n")
 
@@ -187,9 +190,33 @@ def run_episode(
                                 y_min=-1.0, y_max=16.0)
 
     goal_xy  = maze_grid.cell_centre_world(*maze_grid.goal_cell)
+    start_xy = (0.0, 0.0)
 
+    _w = {"wastar3": 3.0, "wastar10": 10.0}.get(planner, heuristic_weight)
+    if planner == "dijkstra":
+        _plan_fn = lambda g, s, gl, center_weight: plan_dijkstra(g, s, gl, center_weight=center_weight)
+    elif planner in ("wastar3", "wastar10"):
+        _plan_fn = lambda g, s, gl, center_weight: plan_weighted_astar(g, s, gl, center_weight=center_weight, w=_w)
+    else:
+        _plan_fn = lambda g, s, gl, center_weight: plan(g, s, gl, center_weight=center_weight)
+    _t0 = time.perf_counter()
+    planned_path = _plan_fn(occ_plan_raw, start_xy, goal_xy, center_weight=planner_center_weight)
+    plan_time_s = time.perf_counter() - _t0
+
+    # Compute planned path length for comparison metric
+    def _path_len(pts):
+        return sum(np.hypot(pts[i+1][0]-pts[i][0], pts[i+1][1]-pts[i][1])
+                   for i in range(len(pts)-1)) if len(pts) >= 2 else 0.0
+
+    planned_path_m = _path_len(planned_path) if planned_path else 0.0
+
+    # Always navigate with the maze-native solution: the 0.1m-resolution
+    # planner grid shifts turn points by a fractional cell, misaligning them
+    # with the actual corridor openings and causing the controller to steer
+    # into walls. The planner is benchmarked above (time + path quality).
     path = [(float(x), float(y)) for x, y in maze_grid.solution_world_xy()]
-    print(f"Path: {len(path)} waypoints (corridor centres)  "
+    print(f"Planner={planner}  plan_time={plan_time_s*1000:.1f}ms  "
+          f"planned_waypoints={len(planned_path)}  planned_len={planned_path_m:.1f}m  "
           f"optimal_length={maze_grid.optimal_path_length_m():.1f} m\n")
 
     theta0 = 0.0
@@ -591,6 +618,9 @@ def run_episode(
         # Identity
         "seed":              seed,
         "grid_size":         grid_size,
+        "planner":           planner,
+        "plan_time_ms":      round(plan_time_s * 1000, 2),
+        "planned_path_m":    round(planned_path_m, 3),
 
         # SUCCESS
         "success":           success,
@@ -759,8 +789,12 @@ def _run_with_viewer(
 
     with mujoco.viewer.launch_passive(model, data,
                                       key_callback=_key_cb) as viewer:
-        viewer.opt.geomgroup[4] = True
-        viewer.opt.sitegroup[4] = True
+        # Keep group 0 (start/goal markers); hide groups 1-5 (LiDAR sites)
+        viewer.opt.sitegroup[0] = True
+        for _g in range(1, 6):
+            viewer.opt.sitegroup[_g] = False
+        # Disable the rangefinder-ray overlay MuJoCo draws on top of site geoms
+        viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_RANGEFINDER] = False
 
         pelvis_id = mujoco.mj_name2id(
             model, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
@@ -897,6 +931,9 @@ def main():
     parser.add_argument("--difficulty", choices=DIFFICULTY_PRESETS.keys())
     parser.add_argument("--demo",      action="store_true",
                         help="Show live Rich terminal dashboard (requires rich)")
+    parser.add_argument("--planner",   choices=["astar", "dijkstra", "wastar3", "wastar10"],
+                        default="astar",
+                        help="Path planner: astar, dijkstra, wastar3, wastar10")
     args = parser.parse_args()
 
     grid_size = args.grid_size
@@ -911,6 +948,7 @@ def main():
         record=args.record,
         speed=args.speed,
         demo=args.demo,
+        planner=args.planner,
     )
 
 

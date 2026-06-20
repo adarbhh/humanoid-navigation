@@ -104,7 +104,7 @@ class PurePursuitController:
         # At |err| = 0   → full speed; at |err| = π → 15% speed.
         # cos² gives a natural bell that drops quickly past 90° yet keeps
         # the robot creeping forward so it never stalls mid-turn.
-        turn_factor = max(0.15, np.cos(err / 2) ** 2)
+        turn_factor = max(0.25, np.cos(err / 2) ** 2)
         vx = self.max_vx * turn_factor
 
         return vx, 0.0, yaw_rate
@@ -136,7 +136,7 @@ class PurePursuitController:
             fwd = fwd[(fwd > 0.15) & (fwd < NO_HIT)]
             if fwd.size:
                 min_fwd = float(fwd.min())
-                SLOW_START = 1.0   # begin slowing at this distance (m)
+                SLOW_START = 0.6   # begin slowing at this distance (m)
                 STOP_DIST  = 0.35
                 if min_fwd < SLOW_START:
                     scale = max(0.2, (min_fwd - STOP_DIST) / (SLOW_START - STOP_DIST))

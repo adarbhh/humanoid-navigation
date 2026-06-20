@@ -254,29 +254,31 @@ canvas.post-chart { display: block; width: 100%; }
   <div class="card">
     <div class="card-title">🏁 Solve Status</div>
     <div class="primary c-goal-no" id="goal-val">NO…</div>
-    <div class="sub-row">
-      <div class="metric">
-        <span class="mlabel">Dist to goal</span>
-        <span class="mval" id="dist-val">— m</span>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+      <div class="sub-row">
+        <div class="metric">
+          <span class="mlabel">Dist to goal</span>
+          <span class="mval" id="dist-val">— m</span>
+        </div>
+        <div class="metric">
+          <span class="mlabel">Grid</span>
+          <span class="mval" id="grid-val">—</span>
+        </div>
       </div>
-      <div class="metric">
-        <span class="mlabel">Grid</span>
-        <span class="mval" id="grid-val">—</span>
+      <div id="dist-progress">
+        <div id="dist-bar"></div>
+        <div id="dist-bar-label">0% OF PATH DONE</div>
       </div>
-    </div>
-    <div id="dist-progress">
-      <div id="dist-bar"></div>
-      <div id="dist-bar-label">0% OF PATH DONE</div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-title">⏱ Time</div>
     <div class="primary" id="sim-time">0.0 s</div>
-    <div class="sub-row">
+    <div class="sub-row" style="margin-top:auto">
       <div class="metric">
         <span class="mlabel">Speed</span>
-        <span class="mval" id="rtf-val">2.0x</span>
+        <span id="rtf-val" style="font-size:3.2rem;font-weight:700;line-height:1;letter-spacing:-0.02em;color:#1d1d1f">2.0x</span>
       </div>
     </div>
   </div>

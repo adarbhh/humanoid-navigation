@@ -283,7 +283,7 @@ class Visualizer:
         self._fig       = None
         self._canvas    = None
         self._map_px    = 0
-        self._traj_line = self._robot_dot = self._robot_dir = self._status = None
+        self._traj_line = self._wall_line = self._robot_dot = self._robot_dir = self._status = None
 
         self._traj_x: list[float] = []
         self._traj_y: list[float] = []
@@ -298,7 +298,7 @@ class Visualizer:
         self._dash_fig          = None
         self._dash_canvas       = None
         self._dash_map_px       = 0
-        self._dash_traj_line    = self._dash_robot_dot = self._dash_robot_dir = None
+        self._dash_traj_line    = self._dash_wall_line = self._dash_robot_dot = self._dash_robot_dir = None
 
         import mujoco as _mj
         self._mujoco = _mj
@@ -349,6 +349,9 @@ class Visualizer:
 
         self._traj_line, = ax.plot([], [], ".", color="#66bb6a",
                                    markersize=2, alpha=0.5, zorder=3)
+        self._wall_line, = ax.plot([], [], "-", color="#4488ff",
+                                   lw=max(3, map_px // 60), zorder=4,
+                                   solid_capstyle="round")
         self._robot_dot, = ax.plot([], [], "o", color="#ef5350",
                                    markersize=max(4, map_px // 45), zorder=5)
         self._robot_dir, = ax.plot([], [], "-", color="#ef5350",
@@ -373,13 +376,12 @@ class Visualizer:
         FigureCanvasAgg(fig)
         ax = fig.add_axes([0, 0, 1, 1])
 
-        bg = "#0e1928"   # card background — free space blends into card
+        bg = "#ffffff"
         fig.patch.set_facecolor(bg)
         ax.set_facecolor(bg)
 
-        # Custom colormap: free space (0) = card bg, walls (100) = light blue-grey
         maze_cmap = LinearSegmentedColormap.from_list(
-            "maze_dash", [bg, "#c5d8f0"], N=256
+            "maze_dash", ["#ffffff", "#111111"], N=256
         )
 
         occ = self._occ_nav
@@ -400,6 +402,9 @@ class Visualizer:
 
         self._dash_traj_line, = ax.plot([], [], ".", color="#66bb6a",
                                         markersize=3, alpha=0.6, zorder=3)
+        self._dash_wall_line, = ax.plot([], [], "-", color="#4488ff",
+                                        lw=max(5, map_px // 40), zorder=4,
+                                        solid_capstyle="round")
         self._dash_robot_dot, = ax.plot([], [], "o", color="#ef5350",
                                         markersize=max(8, map_px // 35), zorder=5)
         self._dash_robot_dir,     = ax.plot([], [], "-", color="#ef5350",
@@ -415,16 +420,35 @@ class Visualizer:
         theta_est:   float,
         sim_time:    float,
         paused:      bool = False,
+        wall_info:   "tuple | None" = None,
     ) -> None:
+        """
+        wall_info: (wx, wy, wall_axis, half_width) or None.
+          wall_axis=0 → wall slides along X (face is along Y).
+          wall_axis=1 → wall slides along Y (face is along X).
+        """
         vp = viewer.viewport
 
         if self._fig is None or self.MAP_SIZE != self._map_px:
             self._build(self.MAP_SIZE)
 
+        # ── Wall line helper ──────────────────────────────────────────────────
+        def _wall_endpoints(info):
+            wx, wy, axis, hw = info
+            if axis == 1:   # wall wide in Y, thin in X → vertical line on XY map
+                return [wx, wx], [wy - hw, wy + hw]
+            else:           # wall wide in X, thin in Y → horizontal line on XY map
+                return [wx - hw, wx + hw], [wy, wy]
+
         # ── Minimap ───────────────────────────────────────────────────────────
         self._traj_x.append(x_est)
         self._traj_y.append(y_est)
         self._traj_line.set_data(self._traj_x, self._traj_y)
+        if wall_info is not None:
+            self._wall_line.set_data(*_wall_endpoints(wall_info))
+            self._wall_line.set_visible(True)
+        else:
+            self._wall_line.set_visible(False)
         self._robot_dot.set_data([x_est], [y_est])
         dx, dy = cos(theta_est) * 0.4, sin(theta_est) * 0.4
         self._robot_dir.set_data([x_est, x_est + dx], [y_est, y_est + dy])
@@ -444,6 +468,11 @@ class Visualizer:
             self._build_dash(self.DASH_MAP_SIZE)
 
         self._dash_traj_line.set_data(self._traj_x, self._traj_y)
+        if wall_info is not None:
+            self._dash_wall_line.set_data(*_wall_endpoints(wall_info))
+            self._dash_wall_line.set_visible(True)
+        else:
+            self._dash_wall_line.set_visible(False)
         self._dash_robot_dot.set_data([x_est], [y_est])
         self._dash_robot_dir.set_data([x_est, x_est + dx], [y_est, y_est + dy])
 

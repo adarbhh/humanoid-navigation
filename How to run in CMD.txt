@@ -21,3 +21,7 @@ demo.bat 42
 
 live demo with obstacles:
 demo_dynamic.bat 42
+
+live demo with actuator failure
+demo_fault.bat 42
+on mac: make demo-fault SEED=42

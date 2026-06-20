@@ -26,5 +26,13 @@ Thumbs.db
 
 # MuJoCo generated
 /tmp/maze_*
-runs/ 
-*.h5 
+runs/
+*.h5
+
+# Large assets — excluded from version control
+*.pptx
+*.mp4
+screenshot.png
+unpacked_pptx/
+unpacked_parametric/
+~$*

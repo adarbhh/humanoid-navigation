@@ -41,6 +41,26 @@ report:
 demo:
 	$(PYTHON) runner.py --seed $(SEED) --speed $(SPEED) --demo
 
+# ── Dijkstra planner demo ──────────────────────────────────────────────────
+.PHONY: demo-dijkstra
+demo-dijkstra:
+	$(PYTHON) runner.py --seed $(SEED) --speed $(SPEED) --planner dijkstra --demo
+
+# ── Compare planners (A* vs Dijkstra) ──────────────────────────────────────
+.PHONY: compare-planners
+compare-planners:
+	$(PYTHON) scripts/compare_planners.py --seed $(SEED) --no-viz
+
+# ── Dynamic obstacle demo ─────────────────────────────────────────────────
+.PHONY: demo-dynamic
+demo-dynamic:
+	$(PYTHON) runner_dynamic.py --seed $(SEED) --speed $(SPEED) --demo
+
+# ── Fault injection demo ───────────────────────────────────────────────────
+.PHONY: demo-fault
+demo-fault:
+	$(PYTHON) runner_fault.py --seed $(SEED) --speed $(SPEED) --demo
+
 # ── Tests ──────────────────────────────────────────────────────────────────
 .PHONY: test
 test:
