@@ -49,19 +49,6 @@ You can pass any integer seed — a fresh maze is generated on the fly, no pre-c
 
 ---
 
-## Demo
-
-The live navigation overlay shows the planned path (blue), robot pose estimate (arrow), and distance to goal — updated every control tick at 20 Hz.
-
-<p align="center">
-  <img src="runs/minimap_test.png" width="480" alt="Live navigation minimap — robot navigating maze with path overlay"/>
-</p>
-<p align="center">
-  <em>Real-time minimap: estimated pose (red arrow), BFS path (blue), goal (star). t = 0.2 s into episode, seed 42.</em>
-</p>
-
----
-
 ## Entry Points
 
 | Command | Description |
