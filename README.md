@@ -6,12 +6,12 @@ The robot navigates procedurally generated mazes using only onboard sensors — 
 **Result: 100% solve rate across 120 held-out seeds. Zero stuck events.**
 
 <p align="center">
-  <img src="robot/model/g1/g1.png" width="340" alt="Unitree G1 robot in MuJoCo"/>
+  <img src="screenshot_demo.png" width="340" alt="Unitree G1 navigating inside the MuJoCo maze"/>
   &nbsp;&nbsp;&nbsp;
   <img src="mazes/seed00042_size10/maze_viz.png" width="340" alt="Seed 42 — 10×10 maze with solution path"/>
 </p>
 <p align="center">
-  <em>Left: Unitree G1 humanoid in MuJoCo &nbsp;|&nbsp; Right: Seed 42 — 10×10 maze with BFS solution path (46 waypoints, 62 m)</em>
+  <em>Left: G1 navigating the maze in MuJoCo (t=17s, minimap overlay) &nbsp;|&nbsp; Right: Seed 42 — 10×10 maze with BFS solution path (46 waypoints, 62 m)</em>
 </p>
 
 ---
