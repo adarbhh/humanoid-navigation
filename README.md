@@ -1,4 +1,4 @@
-# G1 Maze Navigation — Robotics Ops 
+# G1 Maze Navigation - Robotics Ops 
 
 End-to-end autonomous navigation pipeline for the Unitree G1 humanoid robot in MuJoCo.
 The robot navigates procedurally generated mazes using only onboard sensors — no ground-truth pose at any point.
