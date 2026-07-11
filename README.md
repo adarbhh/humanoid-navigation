@@ -5,6 +5,15 @@ The robot navigates procedurally generated mazes using only onboard sensors — 
 
 **Result: 100% solve rate across 120 held-out seeds. Zero stuck events.**
 
+<p align="center">
+  <img src="robot/model/g1/g1.png" width="340" alt="Unitree G1 robot in MuJoCo"/>
+  &nbsp;&nbsp;&nbsp;
+  <img src="mazes/seed00042_size10/maze_viz.png" width="340" alt="Seed 42 — 10×10 maze with solution path"/>
+</p>
+<p align="center">
+  <em>Left: Unitree G1 humanoid in MuJoCo &nbsp;|&nbsp; Right: Seed 42 — 10×10 maze with BFS solution path (46 waypoints, 62 m)</em>
+</p>
+
 ---
 
 ## Quick Start
@@ -37,6 +46,19 @@ demo.bat 42
 
 A MuJoCo viewer opens. The robot navigates a maze it has never seen, in real time.
 You can pass any integer seed — a fresh maze is generated on the fly, no pre-caching.
+
+---
+
+## Demo
+
+The live navigation overlay shows the planned path (blue), robot pose estimate (arrow), and distance to goal — updated every control tick at 20 Hz.
+
+<p align="center">
+  <img src="runs/minimap_test.png" width="480" alt="Live navigation minimap — robot navigating maze with path overlay"/>
+</p>
+<p align="center">
+  <em>Real-time minimap: estimated pose (red arrow), BFS path (blue), goal (star). t = 0.2 s into episode, seed 42.</em>
+</p>
 
 ---
 
@@ -144,6 +166,15 @@ make demo-fault SEED=42      # Locked knee joint — sensor fault resilience
 | Path efficiency | 0.838 (84% of optimal) |
 | Stuck events | 0 |
 | Min wall clearance | 0.271 m |
+
+<p align="center">
+  <img src="report/chart_path_efficiency.png" width="440" alt="Path efficiency distribution — 120 held-out seeds"/>
+  &nbsp;
+  <img src="report/chart_time_to_goal.png" width="440" alt="Time to goal distribution — 120 held-out seeds"/>
+</p>
+<p align="center">
+  <em>Left: path efficiency distribution (median 0.838) &nbsp;|&nbsp; Right: time-to-goal distribution (median 171 s) — 120 held-out seeds</em>
+</p>
 
 ---
 
