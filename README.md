@@ -5,7 +5,7 @@ The robot navigates procedurally generated mazes using only onboard sensors — 
 
 **Result: 100% solve rate across 120 held-out seeds. Zero stuck events.**
 
-**KPI report (live):** [adarbhh.github.io/humanoid-navigation/report/kpi_report.html](https://adarbhh.github.io/humanoid-navigation/report/kpi_report.html)
+**KPI report:** [adarbhh.github.io/humanoid-navigation/report/kpi_report.html](https://adarbhh.github.io/humanoid-navigation/report/kpi_report.html)
 
 <p align="center">
   <img src="screenshot_demo.png" width="340" alt="Unitree G1 navigating inside the MuJoCo maze"/>
