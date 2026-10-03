@@ -1,9 +1,11 @@
-# G1 Maze Navigation - Robotics Operations 
+# Autonomous Maze Navigation: Unitree G1 Humanoid Robot
 
 End-to-end autonomous navigation pipeline for the Unitree G1 humanoid robot in MuJoCo.
 The robot navigates procedurally generated mazes using only onboard sensors — no ground-truth pose at any point.
 
 **Result: 100% solve rate across 120 held-out seeds. Zero stuck events.**
+
+**KPI report (live):** [adarbhh.github.io/humanoid-navigation/report/kpi_report.html](https://adarbhh.github.io/humanoid-navigation/report/kpi_report.html)
 
 <p align="center">
   <img src="screenshot_demo.png" width="340" alt="Unitree G1 navigating inside the MuJoCo maze"/>
@@ -74,6 +76,8 @@ make report      # generates report/kpi_report.html
 
 Open `report/kpi_report.html` in any browser. No server required.
 
+`make report` reads `runs/batch_results.json`, so run `make batch` first. The report committed in this repository was generated from the 120-seed run.
+
 ---
 
 ## Project Structure
@@ -104,7 +108,7 @@ Open `report/kpi_report.html` in any browser. No server required.
 │   ├── held_out.txt           # 120 unseen evaluation seeds
 │   └── seen.txt               # 10 seen seeds (overfit check)
 │
-├── runs/                      # Batch results (JSON + HDF5)
+├── runs/                      # Batch results, created by `make batch` (not stored in the repository)
 ├── report/
 │   ├── generate_report.py     # KPI report generator
 │   └── kpi_report.html        # Latest report
@@ -171,3 +175,10 @@ make demo-fault SEED=42      # Locked knee joint — sensor fault resilience
 - Windows 10/11 or Ubuntu 20.04+
 - 8 GB RAM minimum (16 GB recommended for batch runs)
 - No GPU required
+
+---
+
+## License
+
+The code in this repository is released under the [MIT License](LICENSE).
+The Unitree G1 model files under `robot/model/g1/` keep their own license (`robot/model/g1/LICENSE`).

@@ -1,0 +1,3 @@
+# Generated report and bundled dashboards should not count towards the language statistics
+report/kpi_report.html linguist-generated
+dashboard/*.html linguist-vendored
